@@ -15,7 +15,7 @@ If you run into issues or bugs, please reach out to François Dernoncourt
 Current institutional email: francois.dernoncourt@etu.univ-cotedazur.fr
 If the mail address doesn't exist anymore, please refer to the address available at François Dernoncourt's profile at https://…
 
-#####################
+
 
 # Data required to run the scripts
 To keep the repository lightweight, only part of the data is stored here: the simulation parameters, the trained neural density estimators, and the posterior samples.
@@ -43,7 +43,7 @@ If you want to fully reproduce all figures, you will need:
  - The experimental summary CSVs
  - The saved SBI neural density estimators in Simulation_based_inference/saved_posterior_density_estimators/
 
-#####################
+
 
 # 0. Create a Python environment (Conda)
 From a terminal:
@@ -56,7 +56,7 @@ or, in Jupyter / VS Code, select the mapping_RI_env kernel.
 
 The mapping_RI_env.yml file pins a Python + PyTorch + SBI + Brian2 combination
 
-#####################
+
 
 # 1. Experimental data: processing and feature extraction
 End goal of this section: a single CSV summarizing experimental features per condition, ready plotting (R scripts) and simulation-based inference (Python SBI pipeline)
@@ -92,7 +92,7 @@ Please double-check that subject and intensity are parsed correctly:
 subject   = os.path.basename(pickle_file)[:2]   # e.g. "S1", "S2", or "P1", "P2" # or [:4] if using subject indices such as "DeFr"
 intensity = extract_number(pickle_file)         # should be 10.0 or 40.0
 
-#####################
+
 
 # 2. Simulations
 This section covers how to run the spiking network simulations and analyze their spike trains.
@@ -127,7 +127,7 @@ This CSV is then used:
  - For descriptive plots
  - As input to the SBI training pipeline
 
-#####################
+
 
 # 3. Simulation-based inference (SBI)
 This section describes how to:
@@ -196,7 +196,7 @@ Output:
  - Between-muscle and between-intensity posterior comparisons (Fig. 5B)
 The CSVs needed to reproduce the paper’s figures are provided under: Simulation_based_inference/saved_posterior_density_estimators/...
 
-#####################
+
 
 # 4. R figure scripts and additional analyses
 All R notebooks are in R_scripts_figures_results/.
@@ -207,7 +207,7 @@ Input: simulation batch CSV generated in section 2.3
 Output: regression plots relating proxy features to ground-truth physiological parameters (Fig. 2)
 The input file (i.e., the simulation batch) to plot are configurable inside the Rmd.
 
-### 4.2 Figure 5C – Recruitment threshold vs backward trough area
+### 4.2 Fig. 5C – Recruitment threshold vs backward trough area
 Notebook: R_scripts_figures_results/Plotting_experimental_data_features_FIG5.Rmd
 Input: experimental data CSV (output of step 1.3)
 Output:
