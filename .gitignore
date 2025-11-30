@@ -1,17 +1,17 @@
 # --- Python + Jupyter cruft ---
-__pycache__/
-backup_to_ignore/
+/__pycache__
+/backup_to_ignore/
 
 # --- Notebook generated files
-*.nb
+*.html
 
 # --- Analysis outputs (file types) ---
 *.png
 *.svg
 
 # --- Analysis outputs (folders types) ---
-R_scripts_figures_results/Experimental_observable_features_results/
-Simulation_based_inference/Posterior inference output figures/
+/R_scripts_figures_results/Experimental_observable_features_results
+/Simulation_based_inference/Posterior inference output figures
 
 # Temporary
 *.log
