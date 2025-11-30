@@ -1,0 +1,62 @@
+{
+  "perspective_to_use": "other_MUs_as_ref",
+  "direction_to_use": "inhibited",
+  "min_r2_for_baseline_curve_fit": {
+    "simulation": 0.1,
+    "experiment": 0.1
+  },
+  "min_r2_for_overall_curve_fit": {
+    "simulation": 0.75,
+    "experiment": 0.75
+  },
+  "min_nb_spikes": {
+    "simulation": 10000,
+    "experiment": 5000
+  },
+  "within_or_between_pools_sbi": "between",
+  "use_only_same_muscle_pair": false,
+  "use_only_different_muscle_pair": true,
+  "filter_intensity": [
+    10,
+    40
+  ],
+  "filter_muscles": [],
+  "input_sim_parameters_to_infer": [
+    "excitatory_input_baseline_self",
+    "disynpatic_inhib_connections_desired_MN_MN_other_pool",
+    "between_pool_excitatory_input_correlation"
+  ],
+  "summary_funcs": {
+    "mean": "nanmean",
+    "median": "<lambda>",
+    "sd": "nanstd",
+    "iqr": "<lambda>"
+  },
+  "features_for_inference": [
+    "inhibited_by_estimation_raw",
+    "sync_height",
+    "IPSP_timing_of_trough",
+    "Firing_rates_mean",
+    "disynpatic_inhib_connections_desired_MN_MN_self",
+    "common_input_high_freq_middle_of_range_self",
+    "common_input_high_freq_half_width_range_self",
+    "common_input_std_self"
+  ],
+  "input_sim_parameters_as_features": [
+    "disynpatic_inhib_connections_desired_MN_MN_self",
+    "common_input_high_freq_middle_of_range_self",
+    "common_input_high_freq_half_width_range_self",
+    "common_input_std_self"
+  ],
+  "specific_features_of_interest": [
+    "inhibited_by_estimation_raw",
+    "sync_height"
+  ],
+  "sbi_density_estimator": "maf",
+  "num_posterior_samples": {
+    "simulation": 10000,
+    "experiment": 10000,
+    "experiment_with_posterior_estimates_as_features": 100
+  },
+  "version_of_sim_with_only_single_pool_input_vals": false
+}

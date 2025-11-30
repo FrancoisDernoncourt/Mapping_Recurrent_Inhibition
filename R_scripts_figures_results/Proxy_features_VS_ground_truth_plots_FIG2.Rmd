@@ -1,0 +1,702 @@
+---
+title: "Analyzing simulations - figure and results output (results FIG2 of paper)"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(ggbeeswarm)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(ggnewscale)
+library(svglite)
+library(ggtree)
+
+# Load data
+#     # RI connectivity
+path_to_load = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/$$$_Simulation_batches_trough_area_RI_correl/"
+#     # RI synaptic delay
+# path_to_load = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/$$$_Simulation_batches_trough_timing_synaptic_delay_correl/"
+#     # RI IPSP tau
+# path_to_load = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/$$$_Simulation_batches_trough_timing_IPSP_tau_correl/"
+#     # High Freq Common input amplitude
+# path_to_load = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/$$$_Simulation_batches_peak_height_highfreq_input_amplitude_correl/"
+file = paste("___general_analysis_of_simulations",".csv",sep="")
+
+# Folder to save figures
+path_to_save = "" # nothig to save inside the same folder as the script
+
+# Choose perspective and direction
+direction_choice = 'inhibited' # 'inhibiting' # 'inhibited'
+perspective_choice = 'other_MUs_as_ref' # 'MU_as_ref' # 'other_MUs_as_ref'
+
+
+ground_truth_name_inhib = "connectivity_self_pool0" # inhibited_by_ground_truth_receiving" # "inhibiting_ground_truth_delivering" # "inhibited_by_ground_truth_receiving"
+pool_connectivity_var_name = "disynpatic_inhib_connections_desired_MN_MN"
+# setting indices according to how values are organized in the array
+connectivity_self_pool0 = 1
+connectivity_pool0_to_pool1 = 2
+connectivity_self_pool1 = 4
+connectivity_pool1_to_pool0 = 3
+
+ipsp_tau_var_name = "synaptic_IPSP_decay_time_constant"
+disynaptic_delay_var_name = "MN_RC_synpatic_delay"
+
+ground_truth_high_freq_input_amplitude = "high_freq_input_amplitude_pool0_input1"
+high_freq_input_amplitude_var_name = "common_input_std"
+# setting indices according to how values are organized in the array
+high_freq_input_amplitude_pool0_input0 = 1
+high_freq_input_amplitude_pool0_input1 = 2
+high_freq_input_amplitude_pool1_input0 = 3
+high_freq_input_amplitude_pool1_input1 = 4
+
+ground_truth_high_freq_input_min_freqband = "frequency_range_of_common_input_pool0_input1_min"
+ground_truth_high_freq_input_max_freqband = "frequency_range_of_common_input_pool0_input1_max"
+high_freq_common_input_bandwidth_var_name = "frequency_range_of_common_input"
+# setting indices according to how values are organized in the array
+frequency_range_of_common_input_pool0_input0_min = 1
+frequency_range_of_common_input_pool0_input0_max = 2
+frequency_range_of_common_input_pool0_input1_min = 3
+frequency_range_of_common_input_pool0_input1_max = 4
+frequency_range_of_common_input_pool1_input0_min = 5
+frequency_range_of_common_input_pool1_input0_max = 6
+frequency_range_of_common_input_pool1_input1_min = 7
+frequency_range_of_common_input_pool1_input1_max = 8
+
+### LOAD AND FILTER
+df <- read.csv(paste(path_to_load,file,sep=""), stringsAsFactors = FALSE)
+df <- df %>% filter(direction == direction_choice)
+df <- df %>% filter(perspective == perspective_choice)
+df_unfiltered <- df
+
+df <- df %>% filter(n_spikes > 10000)
+df <- df %>% filter(r2_base > 0.1)
+df <- df %>% filter(r2_full > 0.75)
+df_filtered <- df
+
+### VISUALS
+fig_width = 4
+trough_timing_ylim <- c(15,40)
+
+color_trough_area = "#0080FF"
+color_trough_timing = "#6045FF"
+color_highfreqinput = "#FAA51A"
+color_higherfreqinput_maxFreq = "#FFD000"
+color_higherfreqinput_minFreq = "#EF4136"
+
+bandwidths_freq_ranges = data.frame(
+  center_freq_lower_bound = c(15, 27, 38), # c(15, 22, 29, 36, 43),
+  center_freq_higher_bound = c(27, 38, 50) # c(22, 29, 36, 43, 50)
+)
+
+# Legacy to prevent bugs - not used anymore
+color_inhibition_dark = "#002FFF"
+color_inhibition_light = "#00A2FF"
+color_highfreqinput_dark = "#FF2600"
+color_highfreqinput_light = "#FFD000"
+
+
+```
+
+```{r}
+stopifnot(nrow(df) > 0)
+
+# stopifnot(ipsp_tau_var_name %in% names(df))
+if (is.character(df[[ipsp_tau_var_name]])) {
+df <- df %>%
+  mutate(
+    synaptic_IPSP_decay_time_constant =
+      parse_number(synaptic_IPSP_decay_time_constant)  # strips units, returns numeric
+  )
+}
+
+# stopifnot(disynaptic_delay_var_name %in% names(df))
+if (is.character(df[[disynaptic_delay_var_name]])) {
+  df <- df %>%
+    mutate(
+      MN_RC_synpatic_delay =
+        parse_number(MN_RC_synpatic_delay)  # strips units, returns numeric
+    )
+}
+
+stopifnot(pool_connectivity_var_name %in% names(df))
+# Parse "[[a b] [c d]]" → c(a,b,c,d) (row-major)
+parse_characters <- function(s) {
+  if (is.na(s) || !nzchar(s)) return(numeric(0))
+  nums <- regmatches(s, gregexpr("-?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?", s, perl = TRUE))[[1]]
+  as.numeric(nums)
+}
+pick_or_na <- function(v, i) if (length(v) >= i && i > 0) v[i] else NA_real_
+
+stopifnot(pool_connectivity_var_name %in% names(df))
+df <- df %>%
+  mutate(
+    .conn = map(.data[[pool_connectivity_var_name]], parse_characters),
+    connectivity_self_pool0      = map_dbl(.conn, pick_or_na, i = connectivity_self_pool0),
+    # connectivity_pool0_to_pool1  = map_dbl(.conn, pick_or_na, i = connectivity_pool0_to_pool1),
+    # connectivity_self_pool1      = map_dbl(.conn, pick_or_na, i = connectivity_self_pool1),
+    # connectivity_pool1_to_pool0  = map_dbl(.conn, pick_or_na, i = connectivity_pool1_to_pool0)
+  ) %>%
+  select(-.conn)
+
+stopifnot(high_freq_input_amplitude_var_name %in% names(df))
+df <- df %>%
+  mutate(
+    .conn = map(.data[[high_freq_input_amplitude_var_name]], parse_characters),
+    # high_freq_input_amplitude_pool0_input0  = map_dbl(.conn, pick_or_na, i = high_freq_input_amplitude_pool0_input0),
+    high_freq_input_amplitude_pool0_input1  = map_dbl(.conn, pick_or_na, i = high_freq_input_amplitude_pool0_input1),
+    # high_freq_input_amplitude_pool1_input0  = map_dbl(.conn, pick_or_na, i = high_freq_input_amplitude_pool1_input0),
+    # high_freq_input_amplitude_pool1_input1  = map_dbl(.conn, pick_or_na, i = high_freq_input_amplitude_pool1_input1)
+  ) %>%
+  select(-.conn)
+
+stopifnot(high_freq_common_input_bandwidth_var_name %in% names(df))
+df <- df %>%
+  mutate(
+    .highfreq_input = map(.data[[high_freq_common_input_bandwidth_var_name]], parse_characters),
+    # frequency_range_of_common_input_pool0_input0_min = map_dbl(.highfreq_input, pick_or_na, i = frequency_range_of_common_input_pool0_input0_min),
+    # frequency_range_of_common_input_pool0_input0_max = map_dbl(.highfreq_input, pick_or_na, i = frequency_range_of_common_input_pool0_input0_max),
+    frequency_range_of_common_input_pool0_input1_min = map_dbl(.highfreq_input, pick_or_na, i = frequency_range_of_common_input_pool0_input1_min),
+    frequency_range_of_common_input_pool0_input1_max = map_dbl(.highfreq_input, pick_or_na, i = frequency_range_of_common_input_pool0_input1_max),
+    # frequency_range_of_common_input_pool1_input0_min = map_dbl(.highfreq_input, pick_or_na, i = frequency_range_of_common_input_pool1_input0_min),
+    # frequency_range_of_common_input_pool1_input0_max = map_dbl(.highfreq_input, pick_or_na, i = frequency_range_of_common_input_pool1_input0_max),
+    # frequency_range_of_common_input_pool1_input1_min = map_dbl(.highfreq_input, pick_or_na, i = frequency_range_of_common_input_pool1_input1_min),
+    # frequency_range_of_common_input_pool1_input1_max = map_dbl(.highfreq_input, pick_or_na, i = frequency_range_of_common_input_pool1_input1_max),
+  ) %>%
+  select(-.highfreq_input)
+df$high_freq_input_middle_of_freq_range = (df$frequency_range_of_common_input_pool0_input1_min + df$frequency_range_of_common_input_pool0_input1_max)/2
+```
+
+```{r}
+### RECURRENT INHIBITION STRENGTH (MEAN INTRA-POOL INHIBITORY DISYNAPTIC CONNECTIVITY) FIGURE
+
+x_val = ground_truth_name_inhib
+# x_label = "ground_truth_inhibition"
+x_label = "ground_truth_mean_disynaptic_inhibitory_connectivity"
+df[[x_label]] <- df[[x_val]]
+
+y_val = "raw_area_fwd"
+y_label = "trough_area"
+df[[y_label]] <- df[[y_val]] * -100 # positive value; in %
+
+display_individual_MU_markers = FALSE # TRUE
+regress_individual_MUs = FALSE
+
+# pool-level means with clear names
+df_by_pool <- df %>%
+  group_by(sim_name) %>%
+  summarise(
+    x_mean = mean(.data[[x_label]], na.rm = TRUE),
+    y_mean = mean(.data[[y_label]], na.rm = TRUE),
+    n      = dplyr::n(),
+    .groups = "drop"
+  )
+
+# pooled linear model on pool means
+lm_pool  <- lm(y_mean ~ x_mean, data = df_by_pool)
+r2_pool  <- summary(lm_pool)$r.squared
+# individual-level fit
+lm_individual_MUs <- lm(df[[y_label]] ~ df[[x_label]]) 
+r2_individual_MUs <- summary(lm_individual_MUs)$r.squared
+
+# label position near top-left of the pool-means cloud
+xr <- range(df_by_pool$x_mean, na.rm = TRUE)
+yr <- range(df_by_pool$y_mean, na.rm = TRUE)
+x_annot <- xr[1] + 0.02 * diff(xr)
+y_annot_pool <- yr[2] - 0.03 * diff(yr)
+y_annot_individual_MUs <- yr[2] - 0.1 * diff(yr)
+
+# base scatter of all points + overlay pooled means
+p <- ggplot(df, aes(x = .data[[x_label]], y = .data[[y_label]])) +
+  (if (isTRUE(display_individual_MU_markers))
+     geom_point(size = 1, alpha = 0.10, color = color_trough_area)
+   else
+     NULL) +
+  # geom_point(
+  #   data = df_by_pool,
+  #   aes(x = x_mean, y = y_mean),
+  #   color = color_trough_area, alpha = 0.5, size = 1.5
+  # ) +
+  geom_point2(
+    data = df_by_pool,
+    aes(x = x_mean, y = y_mean),
+    fill = color_trough_area, color = color_trough_area,
+    alpha = 0.35, size = 3, stroke=0, shape=21, na.rm = TRUE
+  ) +
+  # pooled fit on pool means
+  geom_smooth(
+    data = df_by_pool,
+    aes(x = x_mean, y = y_mean),
+    method = "lm", se = TRUE,
+    color = color_trough_area, fill = color_trough_area,
+    alpha = 0.3, linewidth = 1
+  ) +
+  annotate(
+    "text", x = x_annot, y = y_annot_pool,
+    label = sprintf("R² (pool) = %.2f", r2_pool),
+    hjust = 0, vjust = 1, size = 5, color = color_trough_area
+  ) +
+  # >>> conditionally add *both* the individual-MU fit and its label
+  (if (isTRUE(regress_individual_MUs)) {
+     list(
+       geom_smooth(
+         method = "lm", se = TRUE,
+         color = color_inhibition_light, fill = color_inhibition_light,
+         alpha = 0.3, linewidth = 1
+       ),
+       annotate(
+         "text", x = x_annot, y = y_annot_individual_MUs,
+         label = sprintf("R² (individual MUs) = %.2f", r2_individual_MUs),
+         hjust = 0, vjust = 1, size = 5, color = color_inhibition_light
+       )
+     )
+   } else {
+     NULL
+   }) +
+  theme_classic() +
+  labs(
+    x = x_label, y = y_label,
+    title = paste(y_label, "~", x_label, sep = " ")
+  ) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 0, hjust = 1)
+  )
+print(p)
+
+# save
+ggsave(paste(path_to_save, y_label, " - ", x_label, ".png", sep=""), width = 5, height = 5, dpi = 300)
+ggsave(
+  filename = paste(path_to_save, y_label, " - ", x_label, ".svg", sep=""),
+  plot     = p,                        # your ggplot object
+  device   = svglite::svglite,
+  width = fig_width, height = 5, units = "in"
+)
+
+```
+
+```{r}
+### HIGH FREQUENCY COMMON INPUT AMPLITUDE FIGURE
+
+x_val = ground_truth_high_freq_input_amplitude
+x_label = "ground_truth_high_freq_common_input_amplitude"
+df[[x_label]] <- df[[x_val]]
+
+y_val = "sync_height"
+y_label = "peak_height"
+df[[y_label]] <- df[[y_val]] * 100 # in %
+
+# --- manual bin table: center-frequency bounds you provided ---
+bands <- bandwidths_freq_ranges %>%
+  arrange(center_freq_lower_bound) %>%
+  mutate(
+    center_freq = (center_freq_lower_bound + center_freq_higher_bound) / 2,
+    bin_label = sprintf("[%.0f, %.0f] Hz (ctr %.0f)",
+                        center_freq_lower_bound, center_freq_higher_bound, center_freq)
+  )
+
+# --- discrete colors interpolated by bin center frequency ---
+rng_cf  <- range(bands$center_freq, na.rm = TRUE)
+# Even sampling across bins (looks tidy); if you prefer strictly by center spacing,
+# use colorRamp on rescaled centers instead.
+ramp_fun   <- grDevices::colorRampPalette(c(color_higherfreqinput_minFreq,
+                                            color_higherfreqinput_maxFreq))
+bin_colors <- ramp_fun(nrow(bands))
+names(bin_colors) <- bands$bin_label
+
+# --- helper: map a numeric "middle-of-range" to a bin index (or NA) ---
+map_to_bin_idx <- function(v) {
+  if (is.na(v)) return(NA_integer_)
+  idx <- which(bands$center_freq_lower_bound <= v & v <= bands$center_freq_higher_bound)
+  if (length(idx)) idx[1] else NA_integer_
+}
+
+# --- source variable for binning/color ---
+color_label <- "high_freq_input_middle_of_freq_range"
+stopifnot(color_label %in% names(df))
+
+# 1) Assign bins to INDIVIDUAL rows (optional layer later)
+df <- df %>%
+  mutate(
+    .bin_idx = vapply(.data[[color_label]], map_to_bin_idx, integer(1)),
+    freq_bin = factor(
+      ifelse(is.na(.bin_idx), NA_character_, bands$bin_label[.bin_idx]),
+      levels = bands$bin_label
+    )
+  )
+
+# 2) Pool-level means + bin assignment (group pools by the *mean* middle-of-range)
+df_by_pool <- df %>%
+  group_by(sim_name) %>%
+  summarise(
+    x_mean     = mean(.data[[x_label]], na.rm = TRUE),
+    y_mean     = mean(.data[[y_label]], na.rm = TRUE),
+    middle_mean= mean(.data[[color_label]], na.rm = TRUE),
+    n          = dplyr::n(),
+    .groups    = "drop"
+  ) %>%
+  mutate(
+    .bin_idx = vapply(middle_mean, map_to_bin_idx, integer(1)),
+    freq_bin = factor(
+      ifelse(is.na(.bin_idx), NA_character_, bands$bin_label[.bin_idx]),
+      levels = bands$bin_label
+    )
+  )
+
+# Remove pools with center frequency higher than described in the paper
+df_by_pool <- df_by_pool %>% filter(
+  middle_mean <= max(bandwidths_freq_ranges$center_freq_higher_bound)
+)
+
+# ----------------------------------------------------------------
+# 3) Safe R^2 + per-bin valid data (for colored regressions)
+# ----------------------------------------------------------------
+safe_r2 <- function(dat, x = "x_mean", y = "y_mean") {
+  if (nrow(dat) < 2 || dplyr::n_distinct(dat[[x]]) < 2) return(NA_real_)
+  summary(lm(reformulate(x, response = y), data = dat))$r.squared
+}
+
+# overall (black) fit R^2
+r2_pool <- safe_r2(df_by_pool)
+
+# per-bin frames that CAN be regressed
+df_bins_valid <- df_by_pool %>%
+  filter(!is.na(freq_bin)) %>%
+  group_by(freq_bin) %>%
+  filter(n() >= 2, dplyr::n_distinct(x_mean) >= 2) %>%
+  ungroup()
+
+# per-bin R^2 (only bands with valid fits)
+bin_r2 <- df_by_pool %>%
+  filter(!is.na(freq_bin)) %>%
+  group_by(freq_bin) %>%
+  summarise(
+    r2  = safe_r2(cur_data()),
+    .groups = "drop"
+  ) %>%
+  filter(!is.na(r2)) %>%
+  # order labels by the original bin order
+  mutate(freq_bin = factor(as.character(freq_bin), levels = bands$bin_label)) %>%
+  arrange(freq_bin) %>%
+  mutate(line_idx = dplyr::row_number())
+
+# label positions
+xr <- range(df_by_pool$x_mean, na.rm = TRUE)
+yr <- range(df_by_pool$y_mean, na.rm = TRUE)
+x_annot <- xr[1] + 0.02 * diff(xr)
+y_step  <- 0.06 * diff(yr)
+
+annot_bins <- bin_r2 %>%
+  transmute(
+    freq_bin,
+    x = x_annot,
+    y = yr[2] - 0.03 * diff(yr) - (line_idx - 1) * y_step,
+    label = sprintf("R² %s = %.2f", as.character(freq_bin), r2)
+  )
+
+# ----------------------------------------------------------------
+# 4) Plot using MANUAL bins + discrete colors
+# ----------------------------------------------------------------
+p <- ggplot(df, aes(x = .data[[x_label]], y = .data[[y_label]])) +
+  # pool means (color by manual bin)
+  # geom_point(
+  #   data = df_by_pool,
+  #   aes(x = x_mean, y = y_mean, color = freq_bin),
+  #   alpha = 0.85, size = 1.8, na.rm = TRUE
+  # ) +
+  geom_point2(
+    data = df_by_pool,
+    aes(x = x_mean, y = y_mean, fill = freq_bin, color = freq_bin),
+    alpha = 0.35, size = 3, stroke=0, shape=21, na.rm = TRUE
+  ) +
+  # overall black regression (if valid)
+  (if (!is.na(r2_pool)) {
+     list(
+       geom_smooth(
+         data = df_by_pool,
+         aes(x = x_mean, y = y_mean),
+         method = "lm", se = TRUE,
+         color = "black", fill = "black",
+         alpha = 0.15, linewidth = 1.1, na.rm = TRUE
+       ),
+       annotate(
+         "text", x = x_annot, y = yr[2] - 0.03 * diff(yr),
+         label = sprintf("R² (all) = %.2f", r2_pool),
+         hjust = 0, vjust = 1, size = 5, color = "black", fontface = "bold"
+       )
+     )
+   } else NULL) +
+  # colored per-bin regressions (valid bins only)
+  geom_smooth(
+    data = df_bins_valid,
+    aes(x = x_mean, y = y_mean, color = freq_bin),
+    method = "lm", se = FALSE, linewidth = 1, na.rm = TRUE
+  ) +
+  # per-bin R^2 labels (colored to match)
+  geom_text(
+    data = annot_bins,
+    aes(x = x, y = y, label = label, color = freq_bin),
+    hjust = 0, vjust = 1, size = 4, show.legend = FALSE, na.rm = TRUE
+  ) +
+  # --- discrete manual colors from your interpolated ramp ---
+  scale_color_manual(
+    values = bin_colors,
+    drop   = FALSE,
+    name   = "Common-input band"
+  ) +
+  scale_fill_manual(
+    values = bin_colors,
+    drop   = FALSE,
+    name   = "Common-input band"
+  ) +
+  theme_classic() +
+  labs(
+    x = x_label, y = y_label,
+    title = paste(y_label, "~", x_label, sep = " ")
+  ) +
+  theme(
+    legend.position = "right",
+    axis.text.x     = element_text(angle = 0, hjust = 1)
+  )
+
+print(p)
+
+# Save (PNG + SVG as you had)
+ggsave(
+  paste(path_to_save, y_label, " - ", x_label, "_manual_bins.png", sep = ""),
+  plot = p, width = 8.5, height = 5.5, dpi = 300
+)
+ggsave(
+  filename = paste(path_to_save, y_label, " - ", x_label, "_manual_bins.svg", sep = ""),
+  plot     = p, device = svglite::svglite,
+  width = fig_width, height = 5, units = "in"
+)
+
+
+```
+
+```{r}
+### RECURRENT INHIBITION IPSP TAU FIGURE
+
+x_val = ipsp_tau_var_name
+x_label = ipsp_tau_var_name
+df[[x_label]] <- df[[x_val]]
+
+y_val = "delay_forward_IPSP"
+y_label = "trough_timing"
+df[[y_label]] <- df[[y_val]] * 1000 # in ms
+
+display_individual_MU_markers = FALSE # TRUE
+regress_individual_MUs = FALSE
+
+# pool-level means with clear names
+df_by_pool <- df %>%
+  group_by(sim_name) %>%
+  summarise(
+    x_mean = mean(.data[[x_label]], na.rm = TRUE),
+    y_mean = mean(.data[[y_label]], na.rm = TRUE),
+    n      = dplyr::n(),
+    .groups = "drop"
+  )
+
+# pooled linear model on pool means
+lm_pool  <- lm(y_mean ~ x_mean, data = df_by_pool)
+r2_pool  <- summary(lm_pool)$r.squared
+# individual-level fit
+lm_individual_MUs <- lm(df[[y_label]] ~ df[[x_label]]) 
+r2_individual_MUs <- summary(lm_individual_MUs)$r.squared
+
+# label position near top-left of the pool-means cloud
+xr <- range(df_by_pool$x_mean, na.rm = TRUE)
+yr <- range(df_by_pool$y_mean, na.rm = TRUE)
+x_annot <- xr[1] + 0.02 * diff(xr)
+y_annot_pool <- yr[2] - 0.03 * diff(yr)
+y_annot_individual_MUs <- yr[2] - 0.1 * diff(yr)
+
+# base scatter of all points + overlay pooled means
+p <- ggplot(df, aes(x = .data[[x_label]], y = .data[[y_label]])) +
+  (if (isTRUE(display_individual_MU_markers))
+     geom_point(size = 1, alpha = 0.10, color = color_trough_timing)
+   else
+     NULL) +
+  # geom_point(
+  #   data = df_by_pool,
+  #   aes(x = x_mean, y = y_mean),
+  #   color = color_trough_timing, alpha = 0.5, size = 1.5
+  # ) +
+  geom_point2(
+    data = df_by_pool,
+    aes(x = x_mean, y = y_mean),
+    fill = color_trough_timing, color = color_trough_timing,
+    alpha = 0.35, size = 3, stroke=0, shape=21, na.rm = TRUE
+  ) +
+  # pooled fit on pool means
+  geom_smooth(
+    data = df_by_pool,
+    aes(x = x_mean, y = y_mean),
+    method = "lm", se = TRUE,
+    color = color_trough_timing, fill = color_trough_timing,
+    alpha = 0.3, linewidth = 1
+  ) +
+  annotate(
+    "text", x = x_annot, y = y_annot_pool,
+    label = sprintf("R² (pool) = %.2f", r2_pool),
+    hjust = 0, vjust = 1, size = 5, color = color_trough_timing
+  ) +
+  # >>> conditionally add *both* the individual-MU fit and its label
+  (if (isTRUE(regress_individual_MUs)) {
+     list(
+       geom_smooth(
+         method = "lm", se = TRUE,
+         color = color_inhibition_light, fill = color_inhibition_light,
+         alpha = 0.3, linewidth = 1
+       ),
+       annotate(
+         "text", x = x_annot, y = y_annot_individual_MUs,
+         label = sprintf("R² (individual MUs) = %.2f", r2_individual_MUs),
+         hjust = 0, vjust = 1, size = 5, color = color_inhibition_light
+       )
+     )
+   } else {
+     NULL
+   }) +
+  theme_classic() +
+  labs(
+    x = x_label, y = y_label,
+    title = paste(y_label, "~", x_label, sep = " ")
+  ) +
+  ylim(trough_timing_ylim) +
+  xlim(c(5,100)) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 0, hjust = 1)
+  )
+print(p)
+
+# save
+ggsave(paste(path_to_save, y_label, " - ", x_label, ".png", sep=""), width = fig_width, height = 5, dpi = 300)
+ggsave(
+  filename = paste(path_to_save, y_label, " - ", x_label, ".svg", sep=""),
+  plot     = p,                        # your ggplot object
+  device   = svglite::svglite,
+  width = fig_width, height = 5, units = "in"
+)
+
+```
+
+```{r}
+### RECURRENT INHIBITION DISYNAPTIC DELAY FIGURE
+
+x_val = disynaptic_delay_var_name
+x_label = disynaptic_delay_var_name
+df[[x_label]] <- df[[x_val]] * 2 # disynaptic, so moving the distance twice
+
+# Filter out anything above 30ms and below 4ms
+df <- df %>% filter(df[[x_label]] < 30)
+df <- df %>% filter(df[[x_label]] > 4)
+
+y_val = "delay_forward_IPSP"
+y_label = "trough_timing"
+df[[y_label]] <- df[[y_val]] * 1000 # in ms
+
+display_individual_MU_markers = FALSE # TRUE
+regress_individual_MUs = FALSE
+
+# pool-level means with clear names
+df_by_pool <- df %>%
+  group_by(sim_name) %>%
+  summarise(
+    x_mean = mean(.data[[x_label]], na.rm = TRUE),
+    y_mean = mean(.data[[y_label]], na.rm = TRUE),
+    n      = dplyr::n(),
+    .groups = "drop"
+  )
+
+# pooled linear model on pool means
+lm_pool  <- lm(y_mean ~ x_mean, data = df_by_pool)
+r2_pool  <- summary(lm_pool)$r.squared
+# individual-level fit
+lm_individual_MUs <- lm(df[[y_label]] ~ df[[x_label]]) 
+r2_individual_MUs <- summary(lm_individual_MUs)$r.squared
+
+# label position near top-left of the pool-means cloud
+xr <- range(df_by_pool$x_mean, na.rm = TRUE)
+yr <- range(df_by_pool$y_mean, na.rm = TRUE)
+x_annot <- xr[1] + 0.02 * diff(xr)
+y_annot_pool <- yr[2] - 0.03 * diff(yr)
+y_annot_individual_MUs <- yr[2] - 0.1 * diff(yr)
+
+# base scatter of all points + overlay pooled means
+p <- ggplot(df, aes(x = .data[[x_label]], y = .data[[y_label]])) +
+  (if (isTRUE(display_individual_MU_markers))
+     geom_point(size = 1, alpha = 0.10, color = color_inhibition_light)
+   else
+     NULL) +
+  # geom_point(
+  #   data = df_by_pool,
+  #   aes(x = x_mean, y = y_mean),
+  #   color = color_trough_timing, alpha = 0.5, size = 1.5
+  # ) +
+  geom_point2(
+    data = df_by_pool,
+    aes(x = x_mean, y = y_mean),
+    fill = color_trough_timing, color = color_trough_timing,
+    alpha = 0.35, size = 3, stroke=0, shape=21, na.rm = TRUE
+  ) +
+  # pooled fit on pool means
+  geom_smooth(
+    data = df_by_pool,
+    aes(x = x_mean, y = y_mean),
+    method = "lm", se = TRUE,
+    color = color_trough_timing, fill = color_trough_timing,
+    alpha = 0.3, linewidth = 1
+  ) +
+  annotate(
+    "text", x = x_annot, y = y_annot_pool,
+    label = sprintf("R² (pool) = %.2f", r2_pool),
+    hjust = 0, vjust = 1, size = 5, color = color_trough_timing
+  ) +
+  # >>> conditionally add *both* the individual-MU fit and its label
+  (if (isTRUE(regress_individual_MUs)) {
+     list(
+       geom_smooth(
+         method = "lm", se = TRUE,
+         color = color_inhibition_light, fill = color_inhibition_light,
+         alpha = 0.3, linewidth = 1
+       ),
+       annotate(
+         "text", x = x_annot, y = y_annot_individual_MUs,
+         label = sprintf("R² (individual MUs) = %.2f", r2_individual_MUs),
+         hjust = 0, vjust = 1, size = 5, color = color_inhibition_light
+       )
+     )
+   } else {
+     NULL
+   }) +
+  theme_classic() +
+  labs(
+    x = x_label, y = y_label,
+    title = paste(y_label, "~", x_label, sep = " ")
+  ) +
+  ylim(trough_timing_ylim) +
+  xlim(c(4,30)) +
+  theme(
+    legend.position = "none",
+    axis.text.x = element_text(angle = 0, hjust = 1)
+  )
+print(p)
+
+# save
+ggsave(paste(path_to_save, y_label, " - ", x_label, ".png", sep=""), width = fig_width, height = 5, dpi = 300)
+ggsave(
+  filename = paste(path_to_save, y_label, " - ", x_label, ".svg", sep=""),
+  plot     = p,                        # your ggplot object
+  device   = svglite::svglite,
+  width = fig_width, height = 5, units = "in"
+)
+
+```
+  
+  

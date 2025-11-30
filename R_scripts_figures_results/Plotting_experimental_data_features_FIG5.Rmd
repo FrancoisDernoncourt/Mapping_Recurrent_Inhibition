@@ -1,0 +1,640 @@
+---
+title: "Experimentally observed features"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(ggbeeswarm)
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(svglite)
+library(ggtree)
+
+direction_choice = 'inhibited'
+perspective_choice = 'other_MUs_as_ref' #'MU_as_ref'
+
+# 1. Load experimental data
+path = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/_experimental_data/"
+file = paste("experimental_data_dataframe_reorganized_and_filtered_dir_",direction_choice,"_persp_",perspective_choice,".csv",sep="")
+figure_saving_path = "Experimental_observable_features_results/"
+output_figure_width = 5
+output_figure_height = 5
+
+df <- read.csv(paste(path,file,sep=""), stringsAsFactors = FALSE)
+df <- df %>% filter(direction == direction_choice)
+df <- df %>% filter(perspective == perspective_choice)
+
+# Directions to be filtered-out (arbitrarily choose one VL<->VM or VM<->VL and GM<->SOL and SOL<->GM direction. Both directions are very similar, so we are just reporting one as being the directional relationship)
+muscle_pair_directions_to_remove <- c(
+  "VM<->VL",
+  "SOL<->GM"
+)
+df <- df %>%
+  dplyr::filter(!muscle_pair %in% muscle_pair_directions_to_remove)
+
+df <- df %>%
+  mutate(
+    # extract whatever’s between the first pair of single‐quotes
+    interaction = str_extract(full_spellout, "(?<=\\[')[^']+"),
+    # turn it into a factor
+    interaction = factor(interaction)
+  )
+df$interaction <- droplevels(df$interaction)
+df$raw_area <- df$raw_area * -100 # convert to probability %, and positive values
+df$sync_height <- df$sync_height * 100 # convert to probability %
+df$asymmetry_diff_raw <- df$asymmetry_diff_raw * 100 # convert to probability %
+df$IPSP_timing_of_trough <- df$IPSP_timing_of_trough * 1000 # convert to ms
+if (direction_choice == 'inhibited') {
+  df$trough_area_received = df$raw_area
+  df$trough_area_delivered = df$raw_area + df$asymmetry_diff_raw
+  df$trough_area_received_minus_delivered = df$trough_area_received - df$trough_area_delivered
+  df$trough_area_delivered_minus_received = df$trough_area_delivered - df$trough_area_received
+  interaction_name = 'inhibited_by'
+} else if (direction_choice == 'inhibiting') {
+  df$trough_area_received = df$raw_area + df$asymmetry_diff_raw
+  df$trough_area_delivered = df$raw_area
+  df$trough_area_received_minus_delivered = df$trough_area_received - df$trough_area_delivered
+  df$trough_area_delivered_minus_received = df$trough_area_delivered - df$trough_area_received
+  interaction_name = 'inhibiting'
+}
+
+# Define the value to be used for the rest of the plotting script
+# Comment out the ones you don't want and uncomment the one you want
+# VAL choice: #df$firing_rates_mean #df$Recruitment_threshold_mean#df$IPSP_timing_of_trough #df$sync_height #df$raw_area
+# LABEL choice: # "Trough area - prct" #"Mean firing rate - pps" #"Recruitment threshold - prct MVC" #"IPSP Timing_of_trough - ms" #"Peak height - prct"
+df$y_val <- df$raw_area
+Y_label = "Trough area - prct" 
+# df$y_val <- df$firing_rates_mean
+# Y_label <- "Mean firing rate - pps"
+# df$y_val <- df$Recruitment_threshold_mean
+# Y_label <- "Recruitment threshold - prct MVC"
+# df$y_val <- df$IPSP_timing_of_trough
+# Y_label <- "IPSP Timing_of_trough - ms"
+# df$y_val <- df$sync_height
+# Y_label <- "Peak height - prct"
+max_y = max(df$y_val, na.rm = TRUE) # 1.0
+min_y = min(df$y_val, na.rm = TRUE)
+
+# 1. Define your custom palette: a named vector of hex codes
+make_palette <- function(tag = c("inhibited_by","inhibiting")) {
+  tag <- match.arg(tag)
+  nm <- c(paste0("VL_",tag,"_VL"), paste0("VL_",tag,"_VM"),
+          paste0("VM_",tag,"_VL"), paste0("VM_",tag,"_VM"),
+          paste0("TA_",tag,"_TA"), paste0("FDI_",tag,"_FDI"),
+          paste0("GM_",tag,"_GM"), paste0("GM_",tag,"_SOL"),
+          paste0("SOL_",tag,"_GM"), paste0("SOL_",tag,"_SOL"))
+  vals <- c("#D62728","#FF9201","#FF9201","#FFC400","forestgreen",
+            "#14BFA8","#2489DC","#7D74EC","#7D74EC","#BB86ED")
+  setNames(vals, nm)
+}
+
+custom_colors <- make_palette(interaction_name)
+
+# 2. Re-set the factor levels to match the order of palette
+df$interaction <- factor(df$interaction, levels = names(custom_colors))
+levels(df$interaction)
+
+```
+
+
+```{r}
+count_overall_unfiltered <- df %>% filter(muscle_A == muscle_B) %>%
+    group_by(muscle_of_MU, intensity) %>%
+  summarise(
+    count = n()
+  )
+print(paste("Total count unfiltered:",sum(count_overall_unfiltered$count)))
+
+df <- df %>% filter(n_spikes > 5000)
+df <- df %>% filter(r2_base > 0.1)
+df <- df %>% filter(r2_full > 0.75)
+
+count_overall <- df %>% filter(muscle_A == muscle_B) %>%
+    group_by(muscle_of_MU, intensity) %>%
+  summarise(
+    count = n()
+  )
+print(paste("Total count filtered:",sum(count_overall$count)))
+```
+
+
+
+```{r}
+R2_overall <- df %>%
+  summarise(
+    mean(r2_full),
+    sd(r2_full)
+  )
+R2_per_condition <- df %>%
+  group_by(intensity, interaction) %>%
+  summarise(
+    mean(r2_full),
+    sd(r2_full)
+  )
+
+```
+
+```{r}
+# Check mean +- sd value for specific conditions
+mean_sd_y_val_per_condition <- df %>%
+  group_by(intensity, interaction) %>%
+  summarise(
+    mean(y_val),
+    sd(y_val)
+  )
+print(mean_sd_y_val_per_condition)
+```
+
+
+```{r}
+
+# filter to 10% intensity
+df_10percent <- df %>% filter(intensity == 10)
+
+# Build a summary with count and a y‐position just above each group’s max
+counts_df <- df_10percent %>%
+  group_by(interaction) %>%
+  summarise(
+    count = n(),
+    y_pos = max_y + 0.075 * max_y
+  )
+
+plot <- ggplot(df_10percent,
+       aes(x = interaction, y = y_val, fill = interaction, color = interaction)) +
+  # 1) your quasirandom points
+  geom_quasirandom(
+    groupOnX = TRUE,
+    method   = "pseudorandom",
+    shape    = 21,
+    stroke   = 0,
+    width    = 0.4,
+    size     = 2.5,
+    alpha    = 0.2
+  ) +
+  # 2) mean marker per category
+    stat_summary(
+    fun      = mean,        # compute the mean
+    geom     = "point",     # draw a point
+    shape    = 21,          # filled diamond
+    size     = 4,           # make it big enough
+    stroke = 2,
+    color    = "grey40",     # outline color
+    show.legend = FALSE
+  ) +
+  stat_summary(
+    fun      = mean,        # compute the mean
+    geom     = "point",     # draw a point
+    shape    = 21,          # filled diamond
+    size     = 3,           # make it big enough
+    stroke = 2,
+    color    = "white",     # outline color
+    show.legend = FALSE
+  ) +
+  # the n‐labels on top
+  geom_text(
+    data    = counts_df,
+    aes(x = interaction, y = max_y*1.075, label = count),
+    color   = "black",
+    size    = 3
+  ) +
+  # 3) your custom colours
+  scale_colour_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  # 4) styling
+  theme_classic() +
+  labs(
+    x     = "X categories",
+    y     = Y_label,
+    title = paste(Y_label," (",10,"%)", sep="")
+  ) +
+  ylim(min_y,max_y*1.1) +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+# save
+ggsave(paste(figure_saving_path, Y_label, "_",10,".png", sep = ""), width = output_figure_width, height = output_figure_height, dpi = 300)
+ggsave(
+  filename = file.path(figure_saving_path, sprintf("%s_%d.svg", Y_label, 10)),
+  plot     = plot,                        # your ggplot object
+  device   = svglite::svglite,
+  width = output_figure_width, height = output_figure_height, units = "in"
+)
+plot
+
+```
+
+```{r}
+
+# filter to 40% intensity
+df_40percent <- df %>% filter(intensity == 40)
+
+# Build a summary with count and a y‐position just above each group’s max
+counts_df <- df_40percent %>%
+  group_by(interaction) %>%
+  summarise(
+    count = n(),
+    y_pos = max_y + 0.075 * max_y
+  )
+
+plot <- ggplot(df_40percent,
+       aes(x = interaction, y = y_val, fill = interaction, color = interaction)) +
+  # 1) your quasirandom points
+  geom_quasirandom(
+    groupOnX = TRUE,
+    method   = "pseudorandom",
+    shape    = 21,
+    stroke   = 0,
+    width    = 0.4,
+    size     = 2.5,
+    alpha    = 0.2
+  ) +
+  # 2) mean marker per category
+    stat_summary(
+    fun      = mean,        # compute the mean
+    geom     = "point",     # draw a point
+    shape    = 21,          # filled diamond
+    size     = 4,           # make it big enough
+    stroke = 2,
+    color    = "grey40",     # outline color
+    show.legend = FALSE
+  ) +
+  stat_summary(
+    fun      = mean,        # compute the mean
+    geom     = "point",     # draw a point
+    shape    = 21,          # filled diamond
+    size     = 3,           # make it big enough
+    stroke = 2,
+    color    = "white",     # outline color
+    show.legend = FALSE
+  ) +
+  # the n‐labels on top
+  geom_text(
+    data    = counts_df,
+    aes(x = interaction, y = max_y*1.075, label = count),
+    color   = "black",
+    size    = 3
+  ) +
+  # 3) your custom colours
+  scale_colour_manual(values = custom_colors) +
+  scale_fill_manual(values = custom_colors) +
+  # 4) styling
+  theme_classic() +
+  labs(
+    x     = "X categories",
+    y     = Y_label,
+    title = paste(Y_label," (",40,"%)", sep="")
+  ) +
+  ylim(min_y,max_y*1.1) +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1))
+
+# save
+ggsave(paste(figure_saving_path, Y_label, "_",40,".png", sep = ""), width = output_figure_width, height = output_figure_height, dpi = 300)
+ggsave(
+  filename = file.path(figure_saving_path, sprintf("%s_%d.svg", Y_label, 40)),
+  plot     = plot,                        # your ggplot object
+  device   = svglite::svglite,
+  width = output_figure_width, height = output_figure_height, units = "in"
+)
+plot
+
+
+```
+
+```{r}
+# install.packages("ggh4x")  # run once if needed
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggh4x)
+library(stringr)
+
+# ----------------------------
+# 0) Choose X and a single Y
+# ----------------------------
+x_var <- "Recruitment_threshold_mean"
+y_var <- "trough_area_delivered"   # e.g. "trough_area_received", "trough_area_delivered", ...
+
+y_labels <- c(
+  trough_area_received                  = "Trough area received (%)",
+  trough_area_delivered                 = "Trough area delivered (%)",
+  trough_area_delivered_minus_received  = "Delivered − Received (%)",
+  trough_area_received_minus_delivered  = "Received − Delivered (%)",
+  firing_rates_mean                     = "Mean firing rate (pps)",
+  sync_height                           = "Peak height (%)",
+  IPSP_timing_of_trough                 = "Trough timing (ms)"
+)
+y_lab <- y_labels[[y_var]]
+
+# ----------------------------
+# 1) Data for 10% and 40%, keep subject
+#    IMPORTANT: drop NA in BOTH X and Y
+# ----------------------------
+# df_xy <- df %>%
+#   filter(intensity %in% c(10, 40)) %>%
+#   dplyr::select(interaction, intensity, subject, all_of(x_var), all_of(y_var)) %>%
+#   filter(!is.na(.data[[x_var]]), !is.na(.data[[y_var]])) %>%
+#   rename(y_val = !!rlang::sym(y_var)) %>%
+#   mutate(
+#     intensity_lab = factor(paste0(intensity, "% MVC"),
+#                            levels = c("10% MVC", "40% MVC"))
+#   )
+### ONLY KEEP muscleX_inhibted_by_muscleX interactions
+df_xy <- df %>%
+  filter(intensity %in% c(10, 40)) %>%
+  dplyr::select(interaction, intensity, subject, all_of(x_var), all_of(y_var)) %>%
+  filter(!is.na(.data[[x_var]]), !is.na(.data[[y_var]])) %>%
+  # keep only "muscle inhibited by itself"
+  filter(str_detect(as.character(interaction), "^([^_]+)_inhibited_by_\\1$")) %>%
+  mutate(
+    intensity_lab = factor(paste0(intensity, "% MVC"),
+                           levels = c("10% MVC", "40% MVC"))
+  ) %>%
+  droplevels() %>%                 # drop now-absent factor levels
+  rename(y_val = !!rlang::sym(y_var))
+
+# Shared x-limits
+x_min_global <- min(df_xy[[x_var]], na.rm = TRUE)
+x_max_global <- max(df_xy[[x_var]], na.rm = TRUE)
+y_min_global <- min(df_xy$y_val, na.rm = TRUE)
+y_max_global <- max(df_xy$y_val, na.rm = TRUE)
+
+# ----------------------------
+# 2) Panel meta for per-panel label anchoring
+# ----------------------------
+panel_meta <- df_xy %>%
+  group_by(interaction, intensity_lab) %>%
+  summarise(
+    y_min = y_min_global, # min(y_val, na.rm = TRUE),
+    y_max = y_max_global, # max(y_val, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    y_range = (y_max - y_min + 1e-9),
+    y_top   = y_max - 0.03 * y_range,  # per-panel top anchor
+    y_step  = 0.035 * y_range          # vertical spacing for label lines
+  )
+
+# ----------------------------
+# 3) R² per subject (raw table) and subjects' average per panel
+# ----------------------------
+fits_subj_r2 <- df_xy %>%
+  group_by(interaction, intensity_lab, subject) %>%
+  summarise(
+    r2 = {
+      if (n() < 2 || dplyr::n_distinct(.data[[x_var]]) < 2) NA_real_
+      else summary(lm(reformulate(x_var, response = "y_val"), data = cur_data()))$r.squared
+    },
+    .groups = "drop"
+  )
+
+# Average across subjects within each panel (ignoring NA R²)
+fits_subj_avg <- fits_subj_r2 %>%
+  group_by(interaction, intensity_lab) %>%
+  summarise(
+    r2_subjects_avg = mean(r2, na.rm = TRUE),
+    n_subj = sum(!is.na(r2)),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    # mean(NA_vector, na.rm=TRUE) -> NaN, convert to NA for clean labels
+    r2_subjects_avg = ifelse(is.nan(r2_subjects_avg), NA_real_, r2_subjects_avg)
+  )
+
+# ----------------------------
+# 4) R² pooled per panel (now join the subjects' average)
+# ----------------------------
+fits_pooled <- df_xy %>%
+  group_by(interaction, intensity_lab) %>%
+  summarise(
+    r2_pooled = {
+      if (n() < 2 || dplyr::n_distinct(.data[[x_var]]) < 2) NA_real_
+      else summary(lm(reformulate(x_var, response = "y_val"), data = cur_data()))$r.squared
+    },
+    .groups = "drop"
+  ) %>%
+  left_join(fits_subj_avg, by = c("interaction", "intensity_lab")) %>%
+  left_join(panel_meta,   by = c("interaction", "intensity_lab")) %>%
+  mutate(
+    label = sprintf(
+      "R² = %s (pooled); %s (subjects avg.)",
+      ifelse(is.na(r2_pooled),      "NA", sprintf("%.2f", r2_pooled)),
+      ifelse(is.na(r2_subjects_avg),"NA", sprintf("%.2f", r2_subjects_avg))
+    ),
+    x_pos = x_min_global + 0.02 * (x_max_global - x_min_global + 1e-9),
+    y_pos = y_top
+  )
+
+# ----------------------------
+# 5) R² per subject within each panel (for the grey lines of text)
+# ----------------------------
+fits_subj <- fits_subj_r2 %>%
+  arrange(interaction, intensity_lab, subject) %>%
+  group_by(interaction, intensity_lab) %>%
+  mutate(line_idx = row_number()) %>%
+  ungroup() %>%
+  left_join(panel_meta, by = c("interaction","intensity_lab")) %>%
+  mutate(
+    label = ifelse(
+      is.na(r2),
+      paste0("R² ", subject, " = NA"),
+      sprintf("R² %s = %.2f", subject, r2)
+    ),
+    x_pos = x_min_global + 0.02 * (x_max_global - x_min_global + 1e-9),
+    y_pos = y_top - line_idx * y_step
+  )
+
+# ----------------------------
+# 6) Plot with axes in EVERY facet (ggh4x)
+# ----------------------------
+p <- ggplot() +
+  # Points
+  geom_point2(
+    data = df_xy,
+    aes(x = .data[[x_var]], y = y_val, fill = interaction, color = interaction),
+    alpha = 0.2, size = 2.5, stroke=0, shape=21
+  ) +
+  # Per-subject thin dashed fits (grey, no CI)
+  geom_smooth(
+    data = df_xy,
+    aes(x = .data[[x_var]], y = y_val, group = subject),
+    method = "lm", se = FALSE,
+    color = "black", alpha = 1, linewidth = 0.5
+  ) +
+  # # Pooled fit (black, thicker, with CI)
+  # geom_smooth(
+  #   data = df_xy,
+  #   aes(x = .data[[x_var]], y = y_val),
+  #   method = "lm", se = TRUE,
+  #   color = "black", fill = "grey60", alpha = 0.18, linewidth = 1.1
+  # ) +
+
+  # R² labels
+  # geom_text(
+  #   data = fits_pooled,
+  #   aes(x = x_pos, y = y_pos, label = label),
+  #   color = "black", fontface = "bold",
+  #   hjust = 0, vjust = 1, size = 2.5, inherit.aes = FALSE
+  # ) +
+  geom_text(
+    data = fits_subj,
+    aes(x = x_pos, y = y_pos, label = label),
+    color = "grey30",
+    hjust = 0, vjust = 1, size = 2.5, inherit.aes = FALSE
+  ) +
+  # Palette
+  scale_color_manual(values = custom_colors, drop = FALSE) +
+  scale_fill_manual(values = custom_colors, drop = FALSE) +
+  # Shared x, free y
+  scale_x_continuous(limits = c(-2, 45), expand = expansion(mult = c(0,0))) + # c(x_min_global, x_max_global), expand = expansion(mult = c(0,0))) +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.02))) +
+  # Axes in EVERY facet with ggh4x
+  ggh4x::facet_grid2(rows = vars(intensity_lab), cols = vars(interaction),
+                     scales = "free_y", axes = "all", drop = FALSE) +
+  theme_classic(base_size = 11) +
+  labs(
+    x = "Recruitment threshold (% MVC)",
+    y = y_lab,
+    title = paste0(y_lab, " vs Recruitment threshold (10% & 40% intensity)")
+  ) +
+  theme(
+    legend.position  = "none",
+    strip.background = element_rect(fill = "grey95", color = NA),
+    strip.text       = element_text(size = 9),
+    axis.title.x     = element_text(margin = margin(t = 8)),
+    axis.title.y     = element_text(margin = margin(r = 8)),
+    panel.border     = element_blank(),          # no borders
+    panel.spacing    = unit(1.0, "lines")
+  )
+
+print(p)
+
+ggsave(
+  filename = file.path(figure_saving_path, paste0("RT_fits_10and40_", y_var, ".png")),
+  plot = p, width = 20, height = 10, dpi = 300
+)
+ggsave(
+  filename = file.path(figure_saving_path, paste0("RT_fits_10and40_", y_var, ".svg")),
+  plot     = p,                        # your ggplot object
+  device   = svglite::svglite,
+  width = 12, height = 5, units = "in"
+)
+```
+```{r}
+library(dplyr)
+library(broom)
+
+alpha <- 0.05
+
+# 1) Per-subject regressions: R^2 and p-value for slope
+fits_subj_tests <- df_xy %>%
+  group_by(interaction, intensity_lab, subject) %>%
+  group_modify(~{
+    dat <- .x
+    # guard: need at least 2 distinct x to estimate a slope
+    if (nrow(dat) < 2 || dplyr::n_distinct(dat[[x_var]]) < 2) {
+      tibble(r2 = NA_real_, p_slope = NA_real_, n = nrow(dat))
+    } else {
+      m <- lm(reformulate(x_var, response = "y_val"), data = dat)
+      tib <- broom::tidy(m)
+      slope_p <- tib %>% dplyr::filter(term == x_var) %>% dplyr::pull(p.value)
+      tibble(
+        r2 = summary(m)$r.squared,
+        p_slope = ifelse(length(slope_p) == 1, slope_p, NA_real_),
+        n = nrow(dat)
+      )
+    }
+  }) %>%
+  ungroup()
+
+# 2) Focus on your subset: intensity 40% + selected interactions
+muscle_pairs_to_keep <- c(
+  "VL_inhibited_by_VL","VM_inhibited_by_VM",
+  "GM_inhibited_by_GM","SOL_inhibited_by_SOL",
+  "TA_inhibited_by_TA","FDI_inhibited_by_FDI"
+)
+
+sel <- fits_subj_tests %>%
+  filter(intensity_lab == "40% MVC",
+         interaction %in% muscle_pairs_to_keep)
+
+# 3) Multiple-testing correction across the tests you are inspecting
+# (here: all selected subject×interaction regressions at 40% MVC)
+sel <- sel %>%
+  mutate(
+    p_BH    = p.adjust(p_slope, method = "BH"),
+    p_bonf  = p.adjust(p_slope, method = "bonferroni")
+  )
+sel <- sel %>% mutate(
+    significant = p_BH < alpha)
+
+# 4) Overall summary across the selected tests
+report_size_dependent_RI <- sel %>%
+  summarise(
+    mean_r2     = mean(r2, na.rm = TRUE),
+    std_r2      = sd(r2, na.rm = TRUE),
+    n_models    = sum(!is.na(p_slope)),
+    n_sig_raw   = sum(p_slope < alpha, na.rm = TRUE),
+    n_sig_BH    = sum(p_BH    < alpha, na.rm = TRUE),
+    n_sig_bonf  = sum(p_bonf  < alpha, na.rm = TRUE)
+  )
+
+# 5) (Optional) Per-interaction breakdown
+report_by_interaction <- sel %>%
+  group_by(interaction) %>%
+  summarise(
+    mean_r2     = mean(r2, na.rm = TRUE),
+    std_r2      = sd(r2, na.rm = TRUE),
+    n_models    = sum(!is.na(p_slope)),
+    n_sig_raw   = sum(p_slope < alpha, na.rm = TRUE),
+    n_sig_BH    = sum(p_BH    < alpha, na.rm = TRUE),
+    n_sig_bonf  = sum(p_bonf  < alpha, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Inspect:
+report_size_dependent_RI
+report_by_interaction
+```
+
+```{r}
+# Count MUs by subject, muscle, and condition
+counts_df_by_subject <- df %>%
+  group_by(interaction, subject, intensity) %>%
+  summarise(
+    count = n()
+  )
+print(paste("Mean nb of MNs per subject, condition, and muscle: ", round(mean(counts_df_by_subject$count)*100)/100,
+            " +/- ", round(sd(counts_df_by_subject$count)*100)/100, sep=""))
+print(paste("Min nb of MNs per subject, condition, and muscle: ", round(min(counts_df_by_subject$count)*100)/100, sep=""))
+print(paste("Max nb of MNs per subject, condition, and muscle: ", round(max(counts_df_by_subject$count)*100)/100, sep=""))
+
+```
+
+```{r}
+# Count MUs by subject, muscle, and condition
+counts_df_by_condition <- df %>%
+  group_by(interaction, intensity) %>%
+  summarise(
+    count = n()
+  )
+print(paste("Mean nb of MNs per intensity and muscle: ", round(mean(counts_df_by_condition$count)*100)/100,
+            " +/- ", round(sd(counts_df_by_condition$count)*100)/100, sep=""))
+print(paste("Min nb of MNs per intensity and muscle: ", round(min(counts_df_by_condition$count)*100)/100, sep=""))
+print(paste("Max nb of MNs per intensity and muscle: ", round(max(counts_df_by_condition$count)*100)/100, sep=""))
+
+```
+
+```{r}
+####
+df_compare_conditions_10percent <- df_10percent %>%
+  group_by(interaction, intensity) %>%
+  summarise(
+    mean(raw_area),
+    sd(raw_area),
+    mean(sync_height),
+    sd(sync_height)
+  )
+```

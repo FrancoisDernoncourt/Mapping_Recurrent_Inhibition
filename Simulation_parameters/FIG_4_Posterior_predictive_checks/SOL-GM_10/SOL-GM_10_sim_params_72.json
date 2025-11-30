@@ -1,0 +1,108 @@
+{
+  "output_folder_name": "$$$_Simulation_batches_muscle_pairs\\Z_inference\\inference_model_0\\posterior_predictive_checks_subjects_grouped\\SOL-GM_10",
+  "make_unique_output_folder": true,
+  "output_plots": true,
+  "pre_specify_random_seed": false,
+  "random_seed": 201,
+  "fsamp": 2048,
+  "duration": 100,
+  "duration_with_ignored_window": 102,
+  "edges_ignore_duration": 1,
+  "nb_pools": 2,
+  "full_pool_sim": false,
+  "nb_motoneurons_per_pool": 30,
+  "nb_RCs_per_pool_pair": 10,
+  "min_soma_diameter": 50,
+  "max_soma_diameter": 100,
+  "size_distribution_exponent": 2,
+  "mean_soma_diameter": 60,
+  "sd_prct_soma_diameter": 5.0,
+  "total_nb_motoneurons": 60,
+  "total_nb_renshaw_cells": 40,
+  "voltage_rest": "0. V",
+  "voltage_thresh": "10. mV",
+  "voltage_AHP": "-13.3 mV",
+  "nb_of_common_inputs": 2,
+  "frequency_range_to_set_input_power": [
+    0,
+    5
+  ],
+  "excitatory_input_baseline": [
+    26557.5859375,
+    28894.05078125
+  ],
+  "common_input_std": "[[3000.          46.9833374]\n [3000.        1907.46875  ]]",
+  "common_input_std_as_amp_or_prct": [
+    "nA",
+    "nA"
+  ],
+  "frequency_range_of_common_input": "[[[ 0.          5.        ]\n  [14.62133789 54.95277405]]\n\n [[ 0.          5.        ]\n  [43.53535986 54.30145502]]]",
+  "max_frequency_of_any_input": 80,
+  "common_input_characteristics": {
+    "Frequency_middle_of_range": {
+      "pool_0": {
+        "input_0": 2.5,
+        "input_1": 34.78705596923828
+      },
+      "pool_1": {
+        "input_0": 2.5,
+        "input_1": 48.91840744018555
+      }
+    },
+    "Frequency_half_width_of_range": {
+      "pool_0": {
+        "input_0": 2.5,
+        "input_1": 20.16571807861328
+      },
+      "pool_1": {
+        "input_0": 2.5,
+        "input_1": 5.383047580718994
+      }
+    }
+  },
+  "scale_filter_order_to_frequency": true,
+  "filter_order_scaling_coeff": 0.5,
+  "default_freq_filter_order": 5,
+  "lowest_freq_filter_order": 5,
+  "max_freq_filter_order": 100,
+  "set_same_excitatory_input_for_all_pools": false,
+  "set_arbitrary_correlation_between_excitatory_inputs": true,
+  "between_pool_excitatory_input_correlation": 0.4568938910961151,
+  "low_pass_filter_of_MN_independent_input": 80,
+  "independent_input_absolute_or_ratio": "ratio",
+  "independent_input_power": 4.242640687119286,
+  "low_pass_filter_of_RC_independent_input": 50,
+  "resistance_constant": 960000.0,
+  "resistance_exponent": -2.4,
+  "rheobase_constant": 0.0009000000000000001,
+  "rheobase_exponent": 2.5,
+  "rheobase_scaling": 600.0,
+  "capacitance_constant": 1.2,
+  "capacitance_exponent": 1,
+  "AHP_duration_constant": 25000.0,
+  "AHP_duration_exponent": -1.5,
+  "AHP_conductance_delta_after_spiking": "1. mS",
+  "refractory_period_absolute": 5,
+  "axonal_conduction_velocity_constant": 8.0,
+  "axonal_conduction_velocity_exponent": 0.7,
+  "tau_Renshaw": "8. ms",
+  "refractory_period_RC": "5. ms",
+  "binary_connectivity": false,
+  "disynpatic_inhib_connections_desired_MN_MN": "[[0.90494263 0.2076816 ]\n [0.74875104 0.82912242]]",
+  "split_MN_RC_ratio": 0.5,
+  "distribution_type": "gaussian",
+  "distribution_params": {
+    "std": 0.4,
+    "std_is_prct": true,
+    "ratio_large_small": 1.0
+  },
+  "disynaptic_inhib_received_arbitrary_adjustment": 0,
+  "prevent_heteronymous_pool_overlap": false,
+  "MN_to_Renshaw_EPSP": "6.7 mV",
+  "Renshaw_to_MN_IPSP": "5. uA",
+  "scale_initial_IPSP_to_be_same_integral_regardless_of_synaptic_tau": false,
+  "synaptic_IPSP_membrane_or_user_defined_time_constant": "membrane",
+  "synaptic_IPSP_decay_time_constant": "10. ms",
+  "MN_RC_synpatic_delay": "5. ms",
+  "RC_independent_input_std": 3.333
+}
