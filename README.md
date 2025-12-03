@@ -1,11 +1,12 @@
 # Code for the paper “From Large-Scale Motor Neuron Recordings to Spinal Circuits: Mapping Recurrent Inhibition Across Muscles in Humans”
-(bioRxiv link: TBA)
+(bioRxiv link: TBA [https://...])
 
 This repository contains:
  - Processing and analysis pipelines for experimental HD-EMG / MUedit spike-train data
  - Spiking network simulations of motor neuron pools and recurrent inhibition
  - A full simulation-based inference (SBI) pipeline using neural density estimation
  - Scripts to reproduce the main figures (Python + R)
+ - Some light files generated as part of the paper's simulations and analyses, which can be loaded directly by the scripts. Other files necessary to run the scripts on the same data as the paper can be found at TBA [https://...]
 
 A note on AI assistance:
 Parts of this code were created with assistance from large language models (OpenAI GPT-o4, GPT-5.x).
@@ -13,7 +14,7 @@ All code used in the paper has been manually checked and tested, but you will no
 
 If you run into issues or bugs, please reach out to François Dernoncourt
 Current institutional email: francois.dernoncourt@etu.univ-cotedazur.fr
-If the mail address doesn't exist anymore, please refer to the address available at François Dernoncourt's profile at https://…
+If the mail address doesn't exist anymore, please refer to the address available at François Dernoncourt's profile at [https://...]
 
 
 
@@ -22,7 +23,7 @@ To keep the repository lightweight, only part of the data is stored here: the si
 
 ### Minimal data bundle
 A minimal dataset allowing you to run the full analysis pipeline end-to-end (from processed data to figures) is available at:
-(download link: TBA)
+(download link: TBA [https://...])
 It includes:
  - CSV files with simulation analysis results used in the paper
  - CSV files with experimental analysis results
@@ -30,7 +31,7 @@ It includes:
 
 ### Full experimental dataset
 The full experimental dataset (edited spike trains in MUedit format, Avrillon et al., 2024) can be downloaded from:
-https://…
+TBA [https://...]
 
 ### Parameters/priors, SBI density estimator networks, posterior samples
 Parameter/prior files, trained neural density estimators and posterior samples CSV files are in this repository directly
@@ -71,6 +72,8 @@ These analyses were not used in the paper.
 
 A single MUedit file example is provided in the minimal data bundle.
 
+Please note that this script was built to analyze the data recorded for this study specifically. As such, it may not readily be applicable to a different dataset. Examples: the automatic segmentation of analsis window may not work properly for recordings with different force profiles + if the grid <-> electrode channels mapping is different than the one we used, the script may fail.
+
 ### 1.2 Build synchronization cross-histograms and features
 Notebook: analyze_batch.ipynb (repository root)
 Input: Set path_of_files to the folder where the .h5 outputs of step 1.1 were saved (or alternatively, the path where the experimental data was downloaded).
@@ -89,7 +92,7 @@ Input: This script loads the analysis outputs from step 1.2 (recursively looks i
 Output: a single summary CSV for plotting and SBI
 
 Please double-check that subject and intensity are parsed correctly:
-subject   = os.path.basename(pickle_file)[:2]   # e.g. "S1", "S2", or "P1", "P2" # or [:4] if using subject indices such as "DeFr"
+subject   = os.path.basename(pickle_file)[:2]   # e.g. "P1", "P2" # or [:4] if using subject indices such as "DeFr"
 intensity = extract_number(pickle_file)         # should be 10.0 or 40.0
 
 
@@ -119,7 +122,7 @@ Configure analyzes_params:
 This step computes the same cross-histogram features as for experimental data, but now for all simulated conditions. For the simulated data, it also computes other values such as firing statistics, or coherence.
 
 ### 2.3 Build a summary CSV for the full simulation batch
-Notebook: Simulation_batch_general_analysis.ipynb (root)
+Notebook: simulation_batch_general_analysis.ipynb (root)
 Input: This script loads the simulation outputs from step 2.1 and analysis outputs from step 2.2
 (recursively looks into the subfolders of the folder provided as input to find analysis_output.pkl, simulation_output.h5 and sim_parameters.json files)
 Output: Aggregates all simulation analysis results into a single CSV.
@@ -153,6 +156,8 @@ Data and model files:
 
 The script was used twice in the paper: once for the single-muscle case (inferring recurrent inhibition strength and high-frequency common input per muscle), once for the between-synergists case (inferring recurrent inhibition and shared common input across pairs of muscles)
 The notebook is configured for the within-muscle case by default. Alternative lines of code for the between-muscle case are present but commented out and can be enabled as needed.
+
+You will need to adjust the path to the files loaded by the notebook. Note that the parameters related to the poserior-predictive simulations are at the end of the notebook.
 
 ### 3.1 Evaluating inference on held-out simulations
 Section in the notebook: "Evaluating inference on held-out simulated data (posterior estimates VS ground truth)"

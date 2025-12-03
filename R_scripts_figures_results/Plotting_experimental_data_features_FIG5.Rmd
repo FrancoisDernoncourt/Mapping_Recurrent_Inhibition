@@ -16,7 +16,7 @@ direction_choice = 'inhibited'
 perspective_choice = 'other_MUs_as_ref' #'MU_as_ref'
 
 # 1. Load experimental data
-path = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/_experimental_data/"
+path = "C:/Users/franc/Documents/Mapping_Recurrent_Inhibition_minimal_data_to_run_scripts/Files_to_run_scripts/experimental_data/"
 file = paste("experimental_data_dataframe_reorganized_and_filtered_dir_",direction_choice,"_persp_",perspective_choice,".csv",sep="")
 figure_saving_path = "Experimental_observable_features_results/"
 output_figure_width = 5

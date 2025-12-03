@@ -16,17 +16,17 @@ library(ggtree)
 
 # Load data
 #     # RI connectivity
-path_to_load = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/$$$_Simulation_batches_trough_area_RI_correl/"
+path_to_load = "C:/Users/franc/Documents/Mapping_Recurrent_Inhibition_minimal_data_to_run_scripts/Files_to_run_scripts/simulated_data_proxy_features_VS_ground_truth/Simulation_batch_trough_area_RI_correl/"
 #     # RI synaptic delay
-# path_to_load = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/$$$_Simulation_batches_trough_timing_synaptic_delay_correl/"
+# path_to_load = "C:/Users/franc/Documents/Mapping_Recurrent_Inhibition_minimal_data_to_run_scripts/Files_to_run_scripts/simulated_data_proxy_features_VS_ground_truth/Simulation_batch_trough_timing_synaptic_delay_correl/"
 #     # RI IPSP tau
-# path_to_load = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/$$$_Simulation_batches_trough_timing_IPSP_tau_correl/"
+# path_to_load = "C:/Users/franc/Documents/Mapping_Recurrent_Inhibition_minimal_data_to_run_scripts/Files_to_run_scripts/simulated_data_proxy_features_VS_ground_truth/Simulation_batch_trough_timing_IPSP_tau_correl/"
 #     # High Freq Common input amplitude
-# path_to_load = "C:/Users/franc/Documents/GitHub/SBI_motor_neuron_behavior/$$$_Simulation_batches_peak_height_highfreq_input_amplitude_correl/"
+# path_to_load = "C:/Users/franc/Documents/Mapping_Recurrent_Inhibition_minimal_data_to_run_scripts/Files_to_run_scripts/simulated_data_proxy_features_VS_ground_truth/Simulation_batch_peak_height_highfreq_input_amplitude_correl/"
 file = paste("___general_analysis_of_simulations",".csv",sep="")
 
 # Folder to save figures
-path_to_save = "" # nothig to save inside the same folder as the script
+path_to_save = "" # nothing to save inside the same folder as the script
 
 # Choose perspective and direction
 direction_choice = 'inhibited' # 'inhibiting' # 'inhibited'
